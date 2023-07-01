@@ -3,14 +3,12 @@ from sendgrid.helpers.mail import Mail, Email, To, Content
 
 from datetime import date
 
-import argparse
-import yaml
 import os
 from dotenv import load_dotenv
 import openai
 from relevancy import generate_relevance_score, process_subject_fields
 from download_new_papers import get_papers
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import hydra
 
 # Hackathon quality code. Don't judge too harshly.
@@ -280,21 +278,28 @@ def generate_and_send_digest(config: DictConfig):
         raise RuntimeError("No openai api key found")
     openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-    topic = config.requests.topic
-    categories = config.requests.categories
     from_email = os.environ.get("FROM_EMAIL")
     to_email = os.environ.get("TO_EMAIL")
-    threshold = config.requests.threshold
-    interest = config.requests.interest
-    body = generate_body(topic, categories, interest, threshold)
+
+    list_bodies = [
+        generate_body(
+            config[request].topic,
+            config[request].categories,
+            config[request].interest,
+            config[request].threshold,
+        )
+        for request in config.keys()
+    ]
+
     with open("digests.html", "w") as f:
-        f.write(body)
+        f.write("\n".join(list_bodies))
+
     if os.environ.get("SENDGRID_API_KEY", None):
         sg = SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
         from_email = Email(from_email)  # Change to your verified sender
         to_email = To(to_email)
         subject = date.today().strftime("Personalized arXiv Digest, %d %b %Y")
-        content = Content("text/html", body)
+        content = Content("text/html", "\n".join(list_bodies))
         mail = Mail(from_email, to_email, subject, content)
         mail_json = mail.get()
 
