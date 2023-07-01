@@ -3,14 +3,13 @@ from sendgrid.helpers.mail import Mail, Email, To, Content
 
 from datetime import date
 
-import argparse
-import yaml
 import os
 from dotenv import load_dotenv
 import openai
 from relevancy import generate_relevance_score, process_subject_fields
 from download_new_papers import get_papers
-
+from omegaconf import DictConfig
+import hydra
 
 # Hackathon quality code. Don't judge too harshly.
 # Feel free to submit pull requests to improve the code.
@@ -270,36 +269,37 @@ def generate_body(topic, categories, interest, threshold):
     return body
 
 
-if __name__ == "__main__":
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def generate_and_send_digest(config: DictConfig):
     # Load the .env file.
     load_dotenv()
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", help="yaml config file to use", default="config.yaml"
-    )
-    args = parser.parse_args()
-    with open(args.config, "r") as f:
-        config = yaml.safe_load(f)
 
     if "OPENAI_API_KEY" not in os.environ:
         raise RuntimeError("No openai api key found")
     openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-    topic = config["topic"]
-    categories = config["categories"]
     from_email = os.environ.get("FROM_EMAIL")
     to_email = os.environ.get("TO_EMAIL")
-    threshold = config["threshold"]
-    interest = config["interest"]
-    body = generate_body(topic, categories, interest, threshold)
-    with open("digest.html", "w") as f:
-        f.write(body)
+
+    list_bodies = [
+        generate_body(
+            config[request].topic,
+            config[request].categories,
+            config[request].interest,
+            config[request].threshold,
+        )
+        for request in config.keys()
+    ]
+
+    with open("digests.html", "w") as f:
+        f.write("\n".join(list_bodies))
+
     if os.environ.get("SENDGRID_API_KEY", None):
         sg = SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
         from_email = Email(from_email)  # Change to your verified sender
         to_email = To(to_email)
         subject = date.today().strftime("Personalized arXiv Digest, %d %b %Y")
-        content = Content("text/html", body)
+        content = Content("text/html", "\n".join(list_bodies))
         mail = Mail(from_email, to_email, subject, content)
         mail_json = mail.get()
 
@@ -311,3 +311,7 @@ if __name__ == "__main__":
             print("Send test email: Failure ({response.status_code}, {response.text})")
     else:
         print("No sendgrid api key found. Skipping email")
+
+
+if __name__ == "__main__":
+    generate_and_send_digest()

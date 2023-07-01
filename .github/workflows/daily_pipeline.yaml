@@ -45,8 +45,8 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: digest.html
-        path: digest.html
+        name: digests.html
+        path: digests.html
     - name: check
       id: check
       env:
@@ -80,7 +80,7 @@ jobs:
         subject: Personalized arXiv Digest 
         to: ${{ secrets.TO_EMAIL }} 
         from: "Personalized arxiv digest" 
-        html_body: file://digest.html
+        html_body: file://digests.html
         ignore_cert: true
         convert_markdown: true
         priority: normal 
