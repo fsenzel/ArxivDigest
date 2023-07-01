@@ -280,14 +280,14 @@ def generate_and_send_digest(config: DictConfig):
         raise RuntimeError("No openai api key found")
     openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-    topic = config["topic"]
-    categories = config["categories"]
+    topic = config.requests.topic
+    categories = config.requests.categories
     from_email = os.environ.get("FROM_EMAIL")
     to_email = os.environ.get("TO_EMAIL")
-    threshold = config["threshold"]
-    interest = config["interest"]
+    threshold = config.requests.threshold
+    interest = config.requests.interest
     body = generate_body(topic, categories, interest, threshold)
-    with open("digest.html", "w") as f:
+    with open("digests.html", "w") as f:
         f.write(body)
     if os.environ.get("SENDGRID_API_KEY", None):
         sg = SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
