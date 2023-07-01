@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 import openai
 from relevancy import generate_relevance_score, process_subject_fields
 from download_new_papers import get_papers
-
+from omegaconf import DictConfig, OmegaConf
+import hydra
 
 # Hackathon quality code. Don't judge too harshly.
 # Feel free to submit pull requests to improve the code.
@@ -270,16 +271,10 @@ def generate_body(topic, categories, interest, threshold):
     return body
 
 
-if __name__ == "__main__":
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def generate_and_send_digest(config: DictConfig):
     # Load the .env file.
     load_dotenv()
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", help="yaml config file to use", default="config.yaml"
-    )
-    args = parser.parse_args()
-    with open(args.config, "r") as f:
-        config = yaml.safe_load(f)
 
     if "OPENAI_API_KEY" not in os.environ:
         raise RuntimeError("No openai api key found")
@@ -311,3 +306,7 @@ if __name__ == "__main__":
             print("Send test email: Failure ({response.status_code}, {response.text})")
     else:
         print("No sendgrid api key found. Skipping email")
+
+
+if __name__ == "__main__":
+    generate_and_send_digest()
